@@ -9,6 +9,8 @@ build/
 .idea
 /types
 /typechain
+out
+cache_forge
 
 deployed-contracts.json
 
