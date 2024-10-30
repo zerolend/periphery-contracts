@@ -17,6 +17,7 @@ import {DataTypes} from '@zerolendxyz/core-v3/contracts/protocol/libraries/types
 import {IEACAggregatorProxy} from './interfaces/IEACAggregatorProxy.sol';
 import {IERC20DetailedBytes} from './interfaces/IERC20DetailedBytes.sol';
 import {IUiPoolDataProviderV3} from './interfaces/IUiPoolDataProviderV3.sol';
+import { ICornStakingSilo } from "./interfaces/ICornStakingSilo.sol";
 
 contract UiPoolDataProviderV3 is IUiPoolDataProviderV3 {
   using WadRayMath for uint256;
@@ -27,13 +28,16 @@ contract UiPoolDataProviderV3 is IUiPoolDataProviderV3 {
   IEACAggregatorProxy public immutable marketReferenceCurrencyPriceInUsdProxyAggregator;
   uint256 public constant ETH_CURRENCY_UNIT = 1 ether;
   address public constant MKR_ADDRESS = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
+  ICornStakingSilo public immutable CORN_STAKING;
 
   constructor(
     IEACAggregatorProxy _networkBaseTokenPriceInUsdProxyAggregator,
-    IEACAggregatorProxy _marketReferenceCurrencyPriceInUsdProxyAggregator
+    IEACAggregatorProxy _marketReferenceCurrencyPriceInUsdProxyAggregator,
+    ICornStakingSilo _cornStaking
   ) {
     networkBaseTokenPriceInUsdProxyAggregator = _networkBaseTokenPriceInUsdProxyAggregator;
     marketReferenceCurrencyPriceInUsdProxyAggregator = _marketReferenceCurrencyPriceInUsdProxyAggregator;
+    CORN_STAKING = _cornStaking;
   }
 
   function getReservesList(
@@ -83,7 +87,7 @@ contract UiPoolDataProviderV3 is IUiPoolDataProviderV3 {
       reserveData.priceOracle = oracle.getSourceOfAsset(reserveData.underlyingAsset);
       reserveData.availableLiquidity = IERC20Detailed(reserveData.underlyingAsset).balanceOf(
         reserveData.aTokenAddress
-      );
+      ) + _getCornStakingBalance(reserveData.underlyingAsset, reserveData.aTokenAddress);
       (
         reserveData.totalPrincipalStableDebt,
         ,
@@ -273,5 +277,15 @@ contract UiPoolDataProviderV3 is IUiPoolDataProviderV3 {
       bytesArray[i] = _bytes32[i];
     }
     return string(bytesArray);
+  }
+
+  /**
+   * @notice Should return the amount of staked asset in the Corn Staking contract by the corresponding aToken
+   * @dev Returns the staked amount if corn staking is enabled else returns 0
+   * @param asset The address of the asset
+   * @param aToken The address of the aToken
+   */
+  function _getCornStakingBalance(address asset, address aToken) internal view returns (uint256) {
+    return CORN_STAKING.sharesOf(aToken, asset);
   }
 }
